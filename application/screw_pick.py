@@ -1,3 +1,5 @@
+# add sleep for pick
+
 import os
 import time
 import threading
@@ -13,8 +15,8 @@ from pydobotplus import Dobot
 BASE_DIR = os.path.dirname(__file__)
 CONFIG_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "config"))
 MODEL_PATH = os.path.join(BASE_DIR, "../demo.pt")
-LABEL_MAP = {0: "m8 nut", 1: "m8 screw", 2: "m4 screw"}
-COLOR_MAP = {0: (195, 0, 0), 1: (0, 84, 160), 2: (0, 146, 36)}
+LABEL_MAP = {0: "screw", 2: "screw"}
+COLOR_MAP = {0: (195, 0, 0), 2: (0, 146, 36)}
 
 
 class CameraThread(threading.Thread):
@@ -193,9 +195,11 @@ def main():
                         device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + 10, wait=True)  # Pick
                         device.clear_alarms()
                         device.grip(True)  # Close gripper
+                        time.sleep(0.5)  # Wait for the gripper to close
                         device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + 50, wait=True)
                         device.clear_alarms()
                         device.grip(False)  # Open gripper to release
+                        time.sleep(0.5)  # Wait for the gripper to release
                         is_moving = False
                         print(f"Picked {best_detection['label']} at {target_coordinate.flatten()}")
                         # Return to home

@@ -25,9 +25,12 @@ if __name__ == "__main__":
         (250, 0, 50)
     ]
 
-    for i, (x, y, z) in enumerate(points, 1):
-        print(f"Moving to point {i}: ({x}, {y}, {z})")
-        device.move_to(x, y, z)
-        time.sleep(2)  # Wait 2 seconds between moves
+    for point in points:
+        print(f"Moving to point: {point}")
+        device.move_to(point[0], point[1], point[2], wait=True)
+        time.sleep(2)  # Pause for a second at each point
+
+        print("Current pose:", device.get_pose())
+        time.sleep(1)
 
     device.close()

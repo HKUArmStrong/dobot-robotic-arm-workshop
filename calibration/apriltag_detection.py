@@ -1,3 +1,5 @@
+# Need to continuously output the apriltag detection results (pose)
+
 import cv2
 import numpy as np
 import pyrealsense2 as rs
@@ -69,6 +71,7 @@ def main():
         if tags:
             for tag in tags:
                 draw_green_box(color_image, tag)
+                print(f"Detected tag ID: {tag.tag_id}, Center: {tag.center}, Pose (rvec, tvec): ({tag.pose_R}, {tag.pose_t})")
 
         cv2.imshow("AprilTag Detection", color_image)
         key = cv2.waitKey(1) & 0xFF
