@@ -168,7 +168,6 @@ def main():
     print("Camera streaming started with OBB detection. The arm will automatically pick detected screws.")
 
     is_moving = False
-    has_picked = False
 
     device.move_to(250, 0, 51, wait=True)
     device.move_to(250, 0, 50, wait=True)
@@ -177,7 +176,7 @@ def main():
     try:
         while camera_thread.is_alive():
             print(f"Detections: {len(camera_thread.detection_results)}")
-            if not is_moving and not has_picked and camera_thread.detection_results:
+            if not is_moving and camera_thread.detection_results:
                 # Find the highest confidence detection
                 best_detection = max(camera_thread.detection_results, key=lambda d: d['conf'], default=None)
                 if best_detection and best_detection['conf'] > 0.1:  # Lower threshold for testing
@@ -202,12 +201,11 @@ def main():
                         # Return to home
                         device.move_to(250, 0, 50, wait=True)
                         camera_thread.detecting = True  # Resume detection
-                        has_picked = True
                         print("Picking completed.")
                     else:
                         print("No valid 3D point for detection")
 
-            time.sleep(5)
+            time.sleep(0.1)
     except KeyboardInterrupt:
         pass
     finally:
