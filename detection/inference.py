@@ -16,7 +16,8 @@ import numpy as np
 import pyrealsense2 as rs
 from ultralytics import YOLO
 
-MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../demo.pt'))
+MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/demo.pt'))
+# MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/yolo11m-screw/weights/best.pt'))
 MIN_CONFIDENCE_THRESHOLD = float(os.environ.get('MIN_CONFIDENCE_THRESHOLD', 0.5))
 
 def main(model_path: str = MODEL_PATH, min_conf: float = MIN_CONFIDENCE_THRESHOLD):
