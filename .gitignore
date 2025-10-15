@@ -2,3 +2,5 @@ __pycache__
 config
 dataset
 detection/model
+.vscode
+yolov8m-obb.pt
