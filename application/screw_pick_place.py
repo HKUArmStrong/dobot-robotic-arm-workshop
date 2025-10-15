@@ -14,7 +14,7 @@ from pydobotplus import Dobot
 
 BASE_DIR = os.path.dirname(__file__)
 CONFIG_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "config"))
-MODEL_PATH = os.path.join(BASE_DIR, "../demo.pt")
+MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/demo.pt'))
 LABEL_MAP = {0: "screw", 2: "screw"}
 COLOR_MAP = {0: (195, 0, 0), 2: (0, 146, 36)}
 
