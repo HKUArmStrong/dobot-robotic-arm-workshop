@@ -15,8 +15,19 @@ from pydobotplus import Dobot
 BASE_DIR = os.path.dirname(__file__)
 CONFIG_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "config"))
 MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/demo.pt'))
-LABEL_MAP = {0: "screw", 2: "screw"}
-COLOR_MAP = {0: (195, 0, 0), 2: (0, 146, 36)}
+LABEL_MAP = {0: "screw", 2: "screw", 1: "nut"}
+COLOR_MAP = {0: (195, 0, 0), 2: (0, 146, 36), 1: (0, 0, 195)}
+
+# Movement and timing constants
+HOME_X = 250
+HOME_Y = 0
+HOME_Z = 50
+APPROACH_HEIGHT_OFFSET = 50  # Height above target when approaching
+PICK_HEIGHT_OFFSET = 0  # Height offset when picking object
+GRIP_CLOSE_DELAY = 1.5  # Seconds to wait for gripper to close
+GRIP_OPEN_DELAY = 0.5  # Seconds to wait for gripper to open
+DETECTION_CONFIDENCE_THRESHOLD = 0.1
+LOOP_DELAY = 0.1  # Seconds between detection loop iterations
 
 
 class CameraThread(threading.Thread):
@@ -171,8 +182,7 @@ def main():
 
     is_moving = False
 
-    device.move_to(250, 0, 51, wait=True)
-    device.move_to(250, 0, 50, wait=True)
+    device.move_to(HOME_X, HOME_Y, HOME_Z, wait=True)
     print("Dobot home completed.")
 
     try:
@@ -181,7 +191,7 @@ def main():
             if not is_moving and camera_thread.detection_results:
                 # Find the highest confidence detection
                 best_detection = max(camera_thread.detection_results, key=lambda d: d['conf'], default=None)
-                if best_detection and best_detection['conf'] > 0.1:  # Lower threshold for testing
+                if best_detection and best_detection['conf'] > DETECTION_CONFIDENCE_THRESHOLD:
                     print(f"Best detection: {best_detection['label']} with confidence {best_detection['conf']:.2f}")
                     if best_detection['point_3d'] is not None:
                         point_coordinate = np.array(best_detection['point_3d']).reshape(3,1)
@@ -190,26 +200,26 @@ def main():
                         # Move to pick
                         is_moving = True
                         camera_thread.detecting = False  # Stop detection during movement
-                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + 50, wait=True)  # Above
+                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + APPROACH_HEIGHT_OFFSET, wait=True)  # Above
                         device.clear_alarms()
-                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + 10, wait=True)  # Pick
+                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + PICK_HEIGHT_OFFSET, wait=True)  # Pick
                         device.clear_alarms()
                         device.grip(True)  # Close gripper
-                        time.sleep(0.5)  # Wait for the gripper to close
-                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + 50, wait=True)
+                        time.sleep(GRIP_CLOSE_DELAY)  # Wait for the gripper to close tightly
+                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + APPROACH_HEIGHT_OFFSET, wait=True)
                         device.clear_alarms()
                         device.grip(False)  # Open gripper to release
-                        time.sleep(0.5)  # Wait for the gripper to release
+                        time.sleep(GRIP_OPEN_DELAY)  # Wait for the gripper to release
                         is_moving = False
                         print(f"Picked {best_detection['label']} at {target_coordinate.flatten()}")
                         # Return to home
-                        device.move_to(250, 0, 50, wait=True)
+                        device.move_to(HOME_X, HOME_Y, HOME_Z, wait=True)
                         camera_thread.detecting = True  # Resume detection
                         print("Picking completed.")
                     else:
                         print("No valid 3D point for detection")
 
-            time.sleep(0.1)
+            time.sleep(LOOP_DELAY)
     except KeyboardInterrupt:
         pass
     finally:

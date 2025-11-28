@@ -15,8 +15,19 @@ from pydobotplus import Dobot
 BASE_DIR = os.path.dirname(__file__)
 CONFIG_DIR = os.path.abspath(os.path.join(BASE_DIR, "..", "config"))
 MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/demo.pt'))
-LABEL_MAP = {0: "screw", 2: "screw"}
-COLOR_MAP = {0: (195, 0, 0), 2: (0, 146, 36)}
+LABEL_MAP = {0: "screw", 1: "nut", 2: "screw"}
+COLOR_MAP = {0: (195, 0, 0), 1: (0, 0, 195), 2: (0, 146, 36)}
+
+# Movement and timing constants
+HOME_X = 250
+HOME_Y = 0
+HOME_Z = 50
+APPROACH_HEIGHT_OFFSET = 50  # Height above target when approaching
+PICK_HEIGHT_OFFSET = 0  # Height offset when picking object
+GRIP_CLOSE_DELAY = 1.5  # Seconds to wait for gripper to close
+GRIP_OPEN_DELAY = 0.5  # Seconds to wait for gripper to open
+DETECTION_CONFIDENCE_THRESHOLD = 0.1
+LOOP_DELAY = 0.1  # Seconds between detection loop iterations
 
 
 class CameraThread(threading.Thread):
@@ -34,6 +45,8 @@ class CameraThread(threading.Thread):
         self.detecting = True
         self.frame_queue = []
         self.detection_results = []
+        self.selected_detection = None
+        self.click_pos = None
 
     def initialize_camera(self):
         self.pipeline = rs.pipeline()
@@ -44,10 +57,29 @@ class CameraThread(threading.Thread):
         self.align = rs.align(rs.stream.color)
         self.depth_intrinsics = profile.get_stream(rs.stream.depth).as_video_stream_profile().get_intrinsics()
 
+    def mouse_callback(self, event, x, y, flags, param):
+        """Handle mouse click events"""
+        if event == cv2.EVENT_LBUTTONDOWN:
+            self.click_pos = (x, y)
+            print(f"Click detected at ({x}, {y})")
+            # Find which detection was clicked
+            for detection in self.detection_results:
+                points = detection['points']
+                contour = points.reshape((-1, 1, 2)).astype(np.int32)
+                if cv2.pointPolygonTest(contour, (x, y), False) >= 0:
+                    self.selected_detection = detection
+                    print(f"Selected {detection['label']} with confidence {detection['conf']:.2f}")
+                    break
+
     def run(self):
         print("Camera thread starting...")
         self.initialize_camera()
         print("Camera initialized.")
+        
+        # Set up mouse callback
+        cv2.namedWindow("Screw Detection")
+        cv2.setMouseCallback("Screw Detection", self.mouse_callback)
+        
         while self.running:
             frames = self.pipeline.wait_for_frames()
             aligned_frames = self.align.process(frames)
@@ -97,7 +129,9 @@ class CameraThread(threading.Thread):
 
                             # Draw the oriented bounding box
                             pts = points.reshape((-1, 1, 2)).astype(np.int32)
-                            cv2.polylines(display_image, [pts], True, color, 2)
+                            # Highlight selected detection with thicker border
+                            thickness = 4 if (self.selected_detection and np.array_equal(points, self.selected_detection.get('points'))) else 2
+                            cv2.polylines(display_image, [pts], True, color, thickness)
                             cv2.putText(display_image, f"{label} {conf:.2f}", (int(center[0]), int(center[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
                     else:
                         pass
@@ -111,6 +145,10 @@ class CameraThread(threading.Thread):
                 # Keep last detections for potential use
                 pass
 
+            # Display instructions on the image
+            cv2.putText(display_image, "Click on a screw to pick it. Press 'q' to quit.", 
+                       (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+            
             # Display the image
             cv2.imshow("Screw Detection", display_image)
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -167,49 +205,55 @@ def main():
     camera_thread = CameraThread(MODEL_PATH, LABEL_MAP, COLOR_MAP, detection_area)
     camera_thread.start()
 
-    print("Camera streaming started with OBB detection. The arm will automatically pick detected screws.")
+    print("Camera streaming started with OBB detection. Click on a screw in the window to pick it.")
 
     is_moving = False
 
-    device.move_to(250, 0, 51, wait=True)
-    device.move_to(250, 0, 50, wait=True)
+    device.move_to(HOME_X, HOME_Y, HOME_Z, wait=True)
     print("Dobot home completed.")
 
     try:
         while camera_thread.is_alive():
-            print(f"Detections: {len(camera_thread.detection_results)}")
-            if not is_moving and camera_thread.detection_results:
-                # Find the highest confidence detection
-                best_detection = max(camera_thread.detection_results, key=lambda d: d['conf'], default=None)
-                if best_detection and best_detection['conf'] > 0.1:  # Lower threshold for testing
-                    print(f"Best detection: {best_detection['label']} with confidence {best_detection['conf']:.2f}")
-                    if best_detection['point_3d'] is not None:
-                        point_coordinate = np.array(best_detection['point_3d']).reshape(3,1)
-                        target_coordinate = R_camera2base @ point_coordinate + t_camera2base.reshape(3,1)
-                        print(f"Target coordinate: {target_coordinate.flatten()}")
-                        # Move to pick
-                        is_moving = True
-                        camera_thread.detecting = False  # Stop detection during movement
-                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + 50, wait=True)  # Above
-                        device.clear_alarms()
-                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + 10, wait=True)  # Pick
-                        device.clear_alarms()
-                        device.grip(True)  # Close gripper
-                        time.sleep(0.5)  # Wait for the gripper to close
-                        device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + 50, wait=True)
-                        device.clear_alarms()
-                        device.grip(False)  # Open gripper to release
-                        time.sleep(0.5)  # Wait for the gripper to release
-                        is_moving = False
-                        print(f"Picked {best_detection['label']} at {target_coordinate.flatten()}")
-                        # Return to home
-                        device.move_to(250, 0, 50, wait=True)
-                        camera_thread.detecting = True  # Resume detection
-                        print("Picking completed.")
-                    else:
-                        print("No valid 3D point for detection")
+            # Check if user has selected a detection by clicking
+            if not is_moving and camera_thread.selected_detection is not None:
+                selected = camera_thread.selected_detection
+                print(f"Processing selected {selected['label']} with confidence {selected['conf']:.2f}")
+                
+                if selected['point_3d'] is not None:
+                    point_coordinate = np.array(selected['point_3d']).reshape(3,1)
+                    target_coordinate = R_camera2base @ point_coordinate + t_camera2base.reshape(3,1)
+                    print(f"Target coordinate: {target_coordinate.flatten()}")
+                    
+                    # Move to pick
+                    is_moving = True
+                    camera_thread.detecting = False  # Stop detection during movement
+                    
+                    device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + APPROACH_HEIGHT_OFFSET, wait=True)  # Above
+                    device.clear_alarms()
+                    device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + PICK_HEIGHT_OFFSET, wait=True)  # Pick
+                    device.clear_alarms()
+                    device.grip(True)  # Close gripper
+                    time.sleep(GRIP_CLOSE_DELAY)  # Wait for the gripper to close tightly
+                    device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + APPROACH_HEIGHT_OFFSET, wait=True)
+                    device.clear_alarms()
+                    device.grip(False)  # Open gripper to release
+                    time.sleep(GRIP_OPEN_DELAY)  # Wait for the gripper to release
+                    
+                    print(f"Picked {selected['label']} at {target_coordinate.flatten()}")
+                    
+                    # Return to home
+                    device.move_to(HOME_X, HOME_Y, HOME_Z, wait=True)
+                    
+                    # Clear selection and resume detection
+                    camera_thread.selected_detection = None
+                    camera_thread.detecting = True
+                    is_moving = False
+                    print("Picking completed. Click on another screw to pick it.")
+                else:
+                    print("No valid 3D point for selected detection")
+                    camera_thread.selected_detection = None
 
-            time.sleep(0.1)
+            time.sleep(LOOP_DELAY)
     except KeyboardInterrupt:
         pass
     finally:

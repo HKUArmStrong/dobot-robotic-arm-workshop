@@ -30,8 +30,8 @@ RAW_IMAGE_DIR = os.environ.get('RAW_IMAGE_DIR', os.path.join(os.path.dirname(__f
 # ---------------------------------------------------------------------
 
 # Model path macro (set here or override with MODEL_PATH env var)
-# MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/demo.pt'))
-MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/yolo11m-screw/weights/best.pt'))
+MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/demo.pt'))
+# MODEL_PATH = os.environ.get('MODEL_PATH', os.path.join(os.path.dirname(__file__), '../detection/model/yolo11m-screw/weights/best.pt'))
 
 
 def to_numpy(x):
