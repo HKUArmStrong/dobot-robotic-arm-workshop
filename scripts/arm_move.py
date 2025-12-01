@@ -19,15 +19,15 @@ if __name__ == "__main__":
 
     # Define three points
     points = [
-        (200, 0, 50),
-        (250, 50, 50),
-        (200, -50, 50),
-        (250, 0, 50)
+        (200, 0, 50, 0),
+        (250, 50, 50, 90),
+        (200, -50, 50, 0),
+        (250, 0, 50, -90)
     ]
 
     for point in points:
         print(f"Moving to point: {point}")
-        device.move_to(point[0], point[1], point[2], wait=True)
+        device.move_to(point[0], point[1], point[2], point[3], wait=True)
         time.sleep(2)  # Pause for a second at each point
 
         print("Current pose:", device.get_pose())

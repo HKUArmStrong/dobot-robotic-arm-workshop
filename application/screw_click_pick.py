@@ -23,7 +23,7 @@ HOME_X = 250
 HOME_Y = 0
 HOME_Z = 50
 APPROACH_HEIGHT_OFFSET = 50  # Height above target when approaching
-PICK_HEIGHT_OFFSET = 0  # Height offset when picking object
+PICK_HEIGHT_OFFSET = -5  # Height offset when picking object
 GRIP_CLOSE_DELAY = 1.5  # Seconds to wait for gripper to close
 GRIP_OPEN_DELAY = 0.5  # Seconds to wait for gripper to open
 DETECTION_CONFIDENCE_THRESHOLD = 0.1
@@ -234,21 +234,25 @@ def main():
                     device.clear_alarms()
                     device.grip(True)  # Close gripper
                     time.sleep(GRIP_CLOSE_DELAY)  # Wait for the gripper to close tightly
-                    device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + APPROACH_HEIGHT_OFFSET, wait=True)
+                    device.move_to(target_coordinate[0], target_coordinate[1], target_coordinate[2] + APPROACH_HEIGHT_OFFSET, wait=True)  # Lift up
                     device.clear_alarms()
-                    device.grip(False)  # Open gripper to release
+                    
+                    # Move to home position and place
+                    device.move_to(HOME_X, HOME_Y, HOME_Z, wait=True)  # Move to home position with object
+                    device.clear_alarms()
+                    device.grip(False)  # Open gripper to release at home position
                     time.sleep(GRIP_OPEN_DELAY)  # Wait for the gripper to release
                     
-                    print(f"Picked {selected['label']} at {target_coordinate.flatten()}")
+                    print(f"Picked {selected['label']} at {target_coordinate.flatten()} and placed at home position ({HOME_X}, {HOME_Y}, {HOME_Z})")
                     
-                    # Return to home
-                    device.move_to(HOME_X, HOME_Y, HOME_Z, wait=True)
+                    # Return to home (already at home position after placing)
+                    # No need to move again
                     
                     # Clear selection and resume detection
                     camera_thread.selected_detection = None
                     camera_thread.detecting = True
                     is_moving = False
-                    print("Picking completed. Click on another screw to pick it.")
+                    print("Picking and placing completed. Click on another screw to pick it.")
                 else:
                     print("No valid 3D point for selected detection")
                     camera_thread.selected_detection = None

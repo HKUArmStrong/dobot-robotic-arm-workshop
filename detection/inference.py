@@ -98,7 +98,7 @@ def main(model_path: str = MODEL_PATH, min_conf: float = MIN_CONFIDENCE_THRESHOL
             debug_text = f"Raw: {total_raw}, Valid: {valid}"
             cv2.putText(color_image, debug_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-            cv2.imshow('YOLOv11 OBB RealSense Preview', color_image)
+            cv2.imshow('YOLOv8 OBB RealSense Preview', color_image)
             key = cv2.waitKey(1)
             if key & 0xFF in [ord('q'), ord('Q')]:
                 break

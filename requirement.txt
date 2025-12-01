@@ -3,11 +3,11 @@ pyserial==3.4
 PyYAML==6.0.2
 typeguard==4.4.2
 opencv-python==4.11.0.86
-numpy
+numpy>=1.24.0,<1.27.0
 pyrealsense2
 pupil-apriltags==1.0.4.post10
 pytz
-scipy
+scipy>=1.10.0
 Pygments
 decorator
 pexpect
